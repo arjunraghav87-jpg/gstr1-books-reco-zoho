@@ -1,0 +1,45 @@
+# --- Custom Ignores ---
+# Ignore all Excel files (standard and macro-enabled)
+*.xlsx
+*.xls
+*.xlsm
+
+# Ignore all CSV files
+*.csv
+
+# Ignore all ZIP files (CRITICAL for your new Zoho Mega-Stitch feature)
+*.zip
+
+# Ignore EVERYTHING inside a specific folder 
+Testing/
+Test/
+Program Logic/
+
+# --- Standard General Ignores ---
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build and environment files
+node_modules/
+.env
+dist/
+build/
+*.log
+
+# Ignore the virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Standard Python ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Streamlit files
+.streamlit/
+
+# Secrets file (for local development, not needed in Streamlit Cloud)
+secrets.toml
