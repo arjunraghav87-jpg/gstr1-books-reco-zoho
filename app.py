@@ -59,7 +59,7 @@ def load_zoho_upload(uploaded_file):
                         # EARLY MEMORY SAVER: Hunt for Status column and drop Drafts/Voids instantly
                         status_col = next((c for c in temp_df.columns if 'STATUS' in str(c).upper()), None)
                         if status_col:
-                            temp_df = temp_df[~temp_df[status_col].astype(str).str.upper().isin(['DRAFT', 'VOID', 'CANCELLED'])]
+                            temp_df = temp_df[active_status_mask(temp_df[status_col])]
                         
                         dfs.append(temp_df)
         
@@ -100,6 +100,17 @@ def parse_dates_dayfirst(series):
         except (ValueError, TypeError, OverflowError):
             return pd.NaT
     return series.apply(parse_one)
+
+_VOID_STATUS_REGEX = r'VOID|DRAFT|CANCEL'
+
+def active_status_mask(series):
+    """True for rows to KEEP. Excludes Void/Draft/Cancelled(Canceled) statuses.
+
+    Uses substring matching (not exact isin) after stripping whitespace, so
+    values like ' Void', 'VOIDED', or 'Cancelled by System' are still caught.
+    """
+    s = series.fillna('').astype(str).str.strip().str.upper()
+    return ~s.str.contains(_VOID_STATUS_REGEX, regex=True, na=False)
 
 def clean_match_key(series):
     """Safely converts to uppercase and removes non-alphanumeric chars without turning blanks to 'NAN'."""
@@ -356,7 +367,12 @@ def process_zoho(df_raw, selected_branch="All Branches", is_credit_note=False, s
     # Note: Status filtering is duplicated safely here for non-ZIP uploads
     if 'Status' in col_mapping:
         status_col = col_mapping['Status']
-        df = df[~df[status_col].astype(str).str.upper().isin(['DRAFT', 'VOID', 'CANCELLED'])]
+        before_count = len(df)
+        df = df[active_status_mask(df[status_col])]
+        excluded_count = before_count - len(df)
+        if excluded_count > 0:
+            label = "Credit Notes" if is_credit_note else "Sales Invoices"
+            st.caption(f"🗑️ Excluded {excluded_count} Void/Draft/Cancelled {label} from reconciliation.")
 
     inv_col = col_mapping.get('Invoice_No')
     if not inv_col: return pd.DataFrame() 
