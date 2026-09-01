@@ -5,6 +5,7 @@ import re
 import io
 import traceback
 import zipfile
+from dateutil import parser as date_parser
 
 st.set_page_config(page_title="GST Reconciliation Pro", layout="wide")
 
@@ -73,6 +74,32 @@ def load_zoho_upload(uploaded_file):
         return pd.read_csv(uploaded_file)
     else:
         return pd.read_excel(uploaded_file)
+
+_ISO_DATE_PATTERN = re.compile(r'^\d{4}[-/]')
+
+def parse_dates_dayfirst(series):
+    """Strict day-first date parser.
+
+    pandas' pd.to_datetime(..., format='mixed', dayfirst=True) silently
+    ignores dayfirst for unambiguous numeric dates (e.g. '12/02/2025' is
+    parsed as Dec-02 instead of Feb-12). Parse element-wise with dateutil
+    instead: year-first strings (e.g. '2025-04-01') are parsed year-first
+    since dayfirst would wrongly swap their month/day; everything else is
+    parsed day-first.
+    """
+    def parse_one(val):
+        if pd.isna(val):
+            return pd.NaT
+        if isinstance(val, (pd.Timestamp, datetime.datetime, datetime.date)):
+            return pd.Timestamp(val)
+        s = str(val).strip()
+        try:
+            if _ISO_DATE_PATTERN.match(s):
+                return pd.Timestamp(date_parser.parse(s, yearfirst=True, dayfirst=False))
+            return pd.Timestamp(date_parser.parse(s, dayfirst=True))
+        except (ValueError, TypeError, OverflowError):
+            return pd.NaT
+    return series.apply(parse_one)
 
 def clean_match_key(series):
     """Safely converts to uppercase and removes non-alphanumeric chars without turning blanks to 'NAN'."""
@@ -205,7 +232,7 @@ def process_gstr1(file, start_ts):
             
         # Extract dates strictly for grouping (We NO LONGER drop GSTR-1 rows based on date)
         if 'Invoice_Date' in df.columns:
-            df['Invoice_Date'] = pd.to_datetime(df['Invoice_Date'], errors='coerce', format='mixed', dayfirst=True)
+            df['Invoice_Date'] = parse_dates_dayfirst(df['Invoice_Date'])
             df['Month_Sort'] = df['Invoice_Date'].dt.strftime('%Y-%m')
             df['Month_Year'] = df['Invoice_Date'].dt.strftime('%b-%Y')
         else:
@@ -352,7 +379,7 @@ def process_zoho(df_raw, selected_branch="All Branches", is_credit_note=False, s
     if 'IGST' in col_mapping: df.loc[df['Zoho_Is_RCM'], col_mapping['IGST']] = 0.0
 
     if 'Invoice_Date' in col_mapping:
-        df['Cleaned_Invoice_Date'] = pd.to_datetime(df[col_mapping['Invoice_Date']], errors='coerce', format='mixed', dayfirst=True)
+        df['Cleaned_Invoice_Date'] = parse_dates_dayfirst(df[col_mapping['Invoice_Date']])
         
         # 🚨 STRICT MANUAL ZOHO DATE SLICER 🚨
         if start_ts is not None and end_ts is not None:
