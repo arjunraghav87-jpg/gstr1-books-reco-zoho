@@ -104,7 +104,7 @@ def process_gstr1(file, start_ts):
             col_str = ' '.join(df.columns.astype(str)).upper()
             if not any(x in col_str for x in ['INV', 'TAXABLE', 'RATE', 'ORIGINAL']):
                 for i, row in df.head(15).iterrows():
-                    row_str = ' '.join(row.astype(str)).upper()
+                    row_str = ' '.join(row.fillna('').astype(str)).upper()
                     if any(x in row_str for x in ['INV', 'TAXABLE', 'RATE', 'ORIGINAL']):
                         df.columns = row.values
                         df = df.iloc[i+1:].reset_index(drop=True)
