@@ -525,6 +525,10 @@ def reconcile(gstr_df, zoho_df):
     for i, col in enumerate(zoho_extras):
         final_cols.insert(4 + i, col)
 
+    if 'Month_Year' in reco.columns:
+        reco = reco.rename(columns={'Month_Year': 'Zoho_Invoice_Month'})
+        final_cols.insert(4 + len(zoho_extras), 'Zoho_Invoice_Month')
+
     final_cols = [c for c in final_cols if c in reco.columns]
     reco = reco[final_cols].sort_values(by='Match_Status', ascending=False)
     reco = reco.drop(columns=['_merge', 'Original_Zoho_Invoice_No'], errors='ignore')
