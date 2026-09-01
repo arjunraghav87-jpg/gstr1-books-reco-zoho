@@ -385,7 +385,7 @@ def process_zoho(df_raw, selected_branch="All Branches", is_credit_note=False, s
     df = df[df['Match_Key'] != '']
     
     if 'Zoho_RCM_Tax' in col_mapping:
-        rcm_series = df[col_mapping['Zoho_RCM_Tax']].astype(str).str.strip().str.upper()
+        rcm_series = df[col_mapping['Zoho_RCM_Tax']].fillna('').astype(str).str.strip().str.upper()
         df['Zoho_Is_RCM'] = (rcm_series != 'NAN') & (rcm_series != 'NONE') & (rcm_series != '')
     else:
         df['Zoho_Is_RCM'] = False
@@ -547,8 +547,10 @@ def reconcile(gstr_df, zoho_df):
     
     if 'Original_Zoho_Invoice_No' in reco.columns:
         reco['Original_Zoho_Invoice_No'] = reco['Original_Zoho_Invoice_No'].replace(['nan', 'None', 'NaN', ''], pd.NA)
-        reco['Invoice_No'] = reco['Invoice_No'].fillna(reco['Original_Zoho_Invoice_No'].astype(str) + " (From Zoho)")
-        reco['Invoice_No'] = reco['Invoice_No'].str.replace(r'<NA> \(From Zoho\)', 'Missing Invoice No', regex=True)
+        has_zoho_no = reco['Original_Zoho_Invoice_No'].notna()
+        fallback = reco['Original_Zoho_Invoice_No'].astype(str) + " (From Zoho)"
+        fallback = fallback.where(has_zoho_no, "Missing Invoice No")
+        reco['Invoice_No'] = reco['Invoice_No'].fillna(fallback)
     else:
         reco['Invoice_No'] = reco['Invoice_No'].fillna(reco['Match_Key'] + " (From Zoho)")
         
